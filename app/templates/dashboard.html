@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}My Vault — SecureVault{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h2>&#128274; My Vault</h2>
+  <a href="{{ url_for('vault.add_entry') }}" class="btn btn-primary">+ Add Entry</a>
+</div>
+
+{% if entries %}
+<table class="vault-table">
+  <thead>
+    <tr>
+      <th>Site</th>
+      <th>URL</th>
+      <th>Username</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in entries %}
+    <tr>
+      <td>{{ entry.site_name }}</td>
+      <td>
+        {% if entry.site_url %}
+          <a href="{{ entry.site_url }}" target="_blank" rel="noopener noreferrer">
+            {{ entry.site_url[:40] }}{% if entry.site_url|length > 40 %}…{% endif %}
+          </a>
+        {% else %}—{% endif %}
+      </td>
+      <td>{{ entry.username }}</td>
+      <td class="actions">
+        <a href="{{ url_for('vault.view_entry', entry_id=entry.id) }}" class="btn btn-sm btn-secondary">View</a>
+        <a href="{{ url_for('vault.edit_entry', entry_id=entry.id) }}" class="btn btn-sm btn-warning">Edit</a>
+
+        {# Delete uses POST form — prevents CSRF via GET link #}
+        <form method="POST" action="{{ url_for('vault.delete_entry', entry_id=entry.id) }}"
+              style="display:inline"
+              onsubmit="return confirm('Delete entry for {{ entry.site_name }}?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>Your vault is empty. <a href="{{ url_for('vault.add_entry') }}">Add your first entry.</a></p>
+</div>
+{% endif %}
+{% endblock %}

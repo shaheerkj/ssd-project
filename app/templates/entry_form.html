@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — SecureVault{% endblock %}
+
+{% block content %}
+<div class="form-card">
+  <h2>&#128274; {{ title }}</h2>
+  <form method="POST">
+    {{ form.hidden_tag() }}  {# CSRF token — all state-changing forms must include this #}
+
+    <div class="form-group">
+      {{ form.site_name.label }}
+      {{ form.site_name(class="form-control", placeholder="e.g. GitHub") }}
+      {% for err in form.site_name.errors %}<span class="error">{{ err }}</span>{% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.site_url.label }}
+      {{ form.site_url(class="form-control", placeholder="https://example.com") }}
+      {% for err in form.site_url.errors %}<span class="error">{{ err }}</span>{% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.username.label }}
+      {{ form.username(class="form-control", placeholder="Username or email") }}
+      {% for err in form.username.errors %}<span class="error">{{ err }}</span>{% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.password.label }}
+      <div class="password-row">
+        {{ form.password(class="form-control", id="pw-field") }}
+        <button type="button" class="btn btn-sm btn-secondary" onclick="togglePw()">Show</button>
+      </div>
+      {% for err in form.password.errors %}<span class="error">{{ err }}</span>{% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.notes.label }}
+      {{ form.notes(class="form-control", rows=3, placeholder="Optional notes") }}
+      {% for err in form.notes.errors %}<span class="error">{{ err }}</span>{% endfor %}
+    </div>
+
+    <div class="form-actions">
+      {{ form.submit(class="btn btn-primary") }}
+      <a href="{{ url_for('vault.dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function togglePw() {
+  const f = document.getElementById('pw-field');
+  f.type = f.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}

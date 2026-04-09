@@ -1,0 +1,188 @@
+name: SecureVault CI/CD Pipeline
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 1 — Unit tests
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run pytest
+        env:
+          SECRET_KEY: ci-test-secret
+          FLASK_ENV: testing
+        run: pytest tests/ -v --tb=short
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2 — SAST with Bandit
+  # ────────────────────────────────────────────────────────────────────────────
+  sast-bandit:
+    name: SAST — Bandit
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit (fail on HIGH severity)
+        run: |
+          bandit -r app/ -ll -ii -f json -o bandit-report.json || true
+          bandit -r app/ -ll -ii
+        # -ll = medium+, -ii = medium+ confidence; exits non-zero on any finding
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 3 — SAST with CodeQL
+  # ────────────────────────────────────────────────────────────────────────────
+  sast-codeql:
+    name: SAST — CodeQL
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 4 — Dependency vulnerability scan
+  # ────────────────────────────────────────────────────────────────────────────
+  dependency-check:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install compatible typer version
+        run: pip install "typer<0.10"
+
+      - name: Install safety
+        run: pip install safety
+
+      - name: Run Safety check
+        run: |
+          pip install -r requirements.txt
+          safety check --full-report
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 5 — DAST with OWASP ZAP (runs against live app)
+  # ────────────────────────────────────────────────────────────────────────────
+  dast-zap:
+    name: DAST — OWASP ZAP Baseline
+    runs-on: ubuntu-latest
+    needs: [sast-bandit, dependency-check]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Start Flask app in background
+        env:
+          SECRET_KEY: zap-test-secret
+          FLASK_ENV: development
+        run: |
+          python run.py &
+          sleep 5  # wait for Flask to start
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:5000"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-I"   # -I = don't fail on warnings
+          artifact_name: zap-baseline-report
+
+      - name: Upload ZAP Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: report_html.html
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 6 — Docker build (bonus)
+  # ────────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [sast-bandit, sast-codeql, dependency-check]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t securevault:${{ github.sha }} .
+
+      - name: Smoke test container
+        run: |
+          docker run -d --name sv_test \
+            -e SECRET_KEY=ci-docker-secret \
+            -p 5000:5000 securevault:${{ github.sha }}
+          sleep 5
+          curl -f http://localhost:5000/login || exit 1
+          docker stop sv_test

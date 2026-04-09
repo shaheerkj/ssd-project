@@ -1,0 +1,30 @@
+# Environment & secrets — NEVER commit these
+.env
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+
+# ZAP reports
+report_html.html
+zap_report/
+
+# Bandit
+bandit-report.json

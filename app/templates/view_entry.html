@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.site_name }} — SecureVault{% endblock %}
+
+{% block content %}
+<div class="form-card">
+  <h2>&#128274; {{ entry.site_name }}</h2>
+
+  <table class="detail-table">
+    <tr><th>Site Name</th><td>{{ entry.site_name }}</td></tr>
+    <tr>
+      <th>URL</th>
+      <td>
+        {% if entry.site_url %}
+          <a href="{{ entry.site_url }}" target="_blank" rel="noopener noreferrer">{{ entry.site_url }}</a>
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    <tr><th>Username</th><td>{{ entry.username }}</td></tr>
+    <tr>
+      <th>Password</th>
+      <td>
+        <span id="pw-display">••••••••</span>
+        <button class="btn btn-sm btn-secondary" onclick="togglePw()">Reveal</button>
+        <input type="hidden" id="pw-value" value="{{ plaintext }}" />
+      </td>
+    </tr>
+    {% if entry.notes %}
+    <tr><th>Notes</th><td>{{ entry.notes }}</td></tr>
+    {% endif %}
+    <tr><th>Added</th><td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+  </table>
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    <a href="{{ url_for('vault.edit_entry', entry_id=entry.id) }}" class="btn btn-warning">Edit</a>
+    <a href="{{ url_for('vault.dashboard') }}" class="btn btn-secondary">Back to Vault</a>
+  </div>
+</div>
+
+<script>
+function togglePw() {
+  const display = document.getElementById('pw-display');
+  const value   = document.getElementById('pw-value').value;
+  display.textContent = display.textContent === '••••••••' ? value : '••••••••';
+}
+</script>
+{% endblock %}

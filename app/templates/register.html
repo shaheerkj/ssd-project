@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Register — SecureVault{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <h2>&#128274; Create Account</h2>
+  <form method="POST" action="{{ url_for('auth.register') }}">
+    {{ form.hidden_tag() }}  {# CSRF token #}
+
+    <div class="form-group">
+      {{ form.username.label }}
+      {{ form.username(class="form-control", placeholder="Username") }}
+      {% for err in form.username.errors %}
+        <span class="error">{{ err }}</span>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.email.label }}
+      {{ form.email(class="form-control", placeholder="email@example.com") }}
+      {% for err in form.email.errors %}
+        <span class="error">{{ err }}</span>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.password.label }}
+      {{ form.password(class="form-control", placeholder="Min 8 characters") }}
+      {% for err in form.password.errors %}
+        <span class="error">{{ err }}</span>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      {{ form.confirm.label }}
+      {{ form.confirm(class="form-control", placeholder="Repeat password") }}
+      {% for err in form.confirm.errors %}
+        <span class="error">{{ err }}</span>
+      {% endfor %}
+    </div>
+
+    {{ form.submit(class="btn btn-primary") }}
+  </form>
+  <p class="auth-link">Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
+</div>
+{% endblock %}
