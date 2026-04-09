@@ -19,6 +19,9 @@ COPY --from=builder /install /usr/local
 # Copy application source
 COPY --chown=appuser:appuser . .
 
+# Create data directory for database
+RUN mkdir /app/data && chown appuser:appuser /app/data
+
 USER appuser
 
 EXPOSE 5000
