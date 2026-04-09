@@ -184,6 +184,6 @@ jobs:
           docker run -d --name sv_test \
             -e SECRET_KEY=ci-docker-secret \
             -p 5000:5000 securevault:${{ github.sha }}
-          sleep 5
+          sleep 15
           curl -f http://localhost:5000/login || exit 1
           docker stop sv_test
