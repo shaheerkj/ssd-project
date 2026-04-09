@@ -111,7 +111,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install compatible typer version
-        run: pip install "typer<0.10"
+        run: pip install "typer>=0.12.3,<0.13"
 
       - name: Install safety
         run: pip install safety
