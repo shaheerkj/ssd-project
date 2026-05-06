@@ -1,6 +1,6 @@
 # SecureVault
 
-**SecureVault** is a self-hosted, Flask-based web password vault that lets users securely store and manage credentials for multiple sites. Every stored password is encrypted at rest with Fernet (AES-128-CBC + HMAC-SHA256), master passwords are hashed with bcrypt, and the application ships with layered security controls — CSRF protection, IDOR prevention, clickjacking headers, and a full CI/CD security pipeline (Bandit · CodeQL · OWASP ZAP · Safety).
+**SecureVault** is a self-hosted, Flask-based web password vault that lets users securely store and manage credentials for multiple sites. Every stored password is encrypted at rest with Fernet (authenticated symmetric encryption using AES-128), master passwords are hashed with bcrypt, and the application ships with layered security controls — CSRF protection, IDOR prevention, clickjacking headers, and a full CI/CD security pipeline (Bandit · CodeQL · OWASP ZAP · Safety).
 
 ---
 
@@ -24,7 +24,7 @@
 
 | Feature | Details |
 |---|---|
-| **Encrypted credential storage** | Vault entries are encrypted with Fernet (AES-128-CBC + HMAC-SHA256) before being written to the database |
+| **Encrypted credential storage** | Vault entries are encrypted with Fernet (authenticated symmetric encryption using AES-128) before being written to the database |
 | **bcrypt master passwords** | User master passwords are hashed with bcrypt (adaptive cost factor) — never stored in plaintext |
 | **CSRF protection** | Every state-changing form includes a Flask-WTF CSRF token; session cookies use `SameSite=Strict` |
 | **IDOR prevention** | All vault entry endpoints verify the requesting user owns the entry (`get_entry_or_403`) |
@@ -93,7 +93,7 @@ All sensitive settings are read from environment variables (loaded via `python-d
 | Variable | Required | Description |
 |---|---|---|
 | `SECRET_KEY` | **Yes** | Flask session signing key. Use a long, random string (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`) |
-| `VAULT_FERNET_KEY` | **Yes (production)** | Fernet symmetric key used to encrypt vault entries. Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. If omitted, a temporary key is generated per-process (development only — all stored entries become unreadable on restart) |
+| `VAULT_FERNET_KEY` | **Yes (production)** | Fernet symmetric key used to encrypt vault entries. Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. If omitted, a temporary key is generated per-process (development only — entries encrypted with a per-process key cannot be decrypted with a different key, so all stored entries will be permanently inaccessible after a restart) |
 | `FLASK_ENV` | Recommended | Set to `production` to enable `Secure` flag on session cookies and other production hardening |
 | `DATABASE_URL` | Optional | SQLAlchemy connection string. Defaults to `sqlite:///data/vault.db` relative to the project root |
 
@@ -178,7 +178,7 @@ secure-vault/
 
 > **This is a security-sensitive application. Please read these notes before deploying.**
 
-1. **Set `SECRET_KEY` and `VAULT_FERNET_KEY` from a secrets manager or secure environment injection — never hard-code them or commit `.env` to git.** Loss of `VAULT_FERNET_KEY` means all stored vault entries become permanently unreadable.
+1. **Set `SECRET_KEY` and `VAULT_FERNET_KEY` from a secrets manager or secure environment injection — never hard-code them or commit `.env` to git.** Loss of `VAULT_FERNET_KEY` means all stored vault entries become permanently irrecoverable — entries encrypted with one key cannot be decrypted with any other key.
 
 2. **Run behind TLS in production.** Flask's built-in server is not suitable for production. Use a reverse proxy (e.g. Nginx or Caddy) with a valid TLS certificate so that session cookies are transmitted over HTTPS only. The `SESSION_COOKIE_SECURE` flag is automatically enabled when `FLASK_ENV=production`.
 
@@ -186,7 +186,7 @@ secure-vault/
 
 4. **Database file access.** The SQLite database contains Fernet-encrypted passwords, but the encryption keys are separate. Ensure the database file and its parent directory are not accessible from the web root and are not world-readable on the host.
 
-5. **Backup `VAULT_FERNET_KEY` securely.** Without the original key, there is no way to recover encrypted vault data.
+5. **Backup `VAULT_FERNET_KEY` securely.** Without the original key, there is no way to recover encrypted vault data — entries are permanently irrecoverable.
 
 6. **Audit log.** Currently, vault operations are not written to an audit log. For higher-security deployments, consider adding application-level logging of create/read/update/delete events (without logging plaintext passwords).
 
